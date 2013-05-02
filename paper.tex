@@ -50,8 +50,6 @@
 % The testflow support page is at:
 % http://www.michaelshell.org/tex/testflow/
 
-
-
 % Note that the a4paper option is mainly intended so that authors in
 % countries using A4 can easily print to A4 and see how their papers will
 % look in print - the typesetting of the document will not typically be
@@ -76,6 +74,8 @@
 
 % Some very useful LaTeX packages include:
 % (uncomment the ones you want to load)
+\usepackage{graphicx}
+\usepackage{listings}
 
 
 % *** MISC UTILITY PACKAGES ***
@@ -187,7 +187,7 @@
 % version and documentation can be obtained at:
 % http://www.ctan.org/tex-archive/macros/latex/required/amslatex/math/
 
-
+\usepackage{mathtools}
 
 
 
@@ -352,28 +352,31 @@
 %
 % paper title
 % can use linebreaks \\ within to get better formatting as desired
-\title{Bare Demo of IEEEtran.cls for Conferences}
+\title{A GPU Solution for Signal Anomaly Detection in the Frequency Domain}
 
 
 % author names and affiliations
 % use a multiple column layout for up to three different
 % affiliations
-\author{\IEEEauthorblockN{Michael Shell}
-\IEEEauthorblockA{School of Electrical and\\Computer Engineering\\
-Georgia Institute of Technology\\
-Atlanta, Georgia 30332--0250\\
-Email: http://www.michaelshell.org/contact.html}
+\author{
+\IEEEauthorblockN{Nathan Jordan}
+\IEEEauthorblockA{Department of Computer Science\\
+University of Nevada, Reno\\
+Reno, Nevada 89512\\
+Email: njordan@cse.unr.edu}
 \and
-\IEEEauthorblockN{Homer Simpson}
-\IEEEauthorblockA{Twentieth Century Fox\\
-Springfield, USA\\
-Email: homer@thesimpsons.com}
+\IEEEauthorblockN{Lee Barford}
+\IEEEauthorblockA{Agilent Technologies\\
+Santa Clara, CA\\
+Email: lee.barford@gmail.com}
 \and
-\IEEEauthorblockN{James Kirk\\ and Montgomery Scott}
-\IEEEauthorblockA{Starfleet Academy\\
-San Francisco, California 96678-2391\\
-Telephone: (800) 555--1212\\
-Fax: (888) 555--1212}}
+\IEEEauthorblockN{Fred Harris}
+\IEEEauthorblockA{Department of Computer Science\\
+University of Nevada, Reno\\
+Reno, Nevada 89512\\
+Email: fred.harris@cse.unr.edu
+}
+}
 
 % conference papers do not typically use \thanks and this command
 % is locked out in conference mode. If really needed, such as for
@@ -412,51 +415,218 @@ Fax: (888) 555--1212}}
 
 \begin{abstract}
 %\boldmath
-The abstract goes here.
+
+
+As the extensibility of GPU computing rapidly increases, we often find them useful
+ for different applications in the field of science and engineering. Libraries
+ written for engineering tasks such as CULA (Cuda Linear Algebra), CUFFT (Cuda 
+ Fast Fourier Transform), and CUBLAS (Cuda Basic Linear Algebra Subprograms) have
+ made it easier for programmers to achieve a significant performance increase when
+ solving problems in the fields of engineering and math. In signal processing we can
+ use the GPU to perform discrete Fourier transforms on time-domain signal strength
+ to represent the data in the frequency domain. With the data in this format, we can 
+ calculate signal strength of various frequencies very efficiently, and further determine
+ if a transmission on a particular frequency has taken place. Speedups in excess of X\%
+ were achievable using a GPU-based implementation utilizing the cuFFT library over a CPU
+ implementation utilizing the most performance optimized CPU-based FFT library, FFTW.
+
 \end{abstract}
-% IEEEtran.cls defaults to using nonbold math in the Abstract.
-% This preserves the distinction between vectors and scalars. However,
-% if the conference you are submitting to favors bold math in the abstract,
-% then you can use LaTeX's standard command \boldmath at the very start
-% of the abstract to achieve this. Many IEEE journals/conferences frown on
-% math in the abstract anyway.
 
-% no keywords
-
-
-
-
-% For peer review papers, you can put extra information on the cover
-% page as needed:
-% \ifCLASSOPTIONpeerreview
-% \begin{center} \bfseries EDICS Category: 3-BBND \end{center}
-% \fi
-%
-% For peerreview papers, this IEEEtran command inserts a page break and
-% creates the second title. It will be ignored for other modes.
 \IEEEpeerreviewmaketitle
 
-
-
 \section{Introduction}
-% no \IEEEPARstart
-This demo file is intended to serve as a ``starter file''
-for IEEE conference papers produced under \LaTeX\ using
-IEEEtran.cls version 1.7 and later.
-% You must have at least 2 lines in the paragraph with the drop letter
-% (should never be an issue)
-I wish you the best of success.
 
-\hfill mds
+The ubiquity and necessity of parallel computing has begun to show itself
+in recent years, and companies have found the need to adapt their hardware to
+facilitate parallelism. This is becoming a necessary change to allow for
+speedups that historically would be delivered by an increase in CPU clock
+frequency. NVIDIA, harnessing the inherent SIMD (single instruction multiple data)
+properties of their GPU's, created the CUDA API, which allows programmers
+to write C/C++ code that takes advantage of the hundreds or thousands of 
+cores present on modern NVIDIA GPU's, without having to learn a new language,
+or have intimate knowledge of the hardware. 
+
+...
+
+...
+
+...
+
  
-\hfill January 11, 2007
+\hfill May 9th, 2013
 
-\subsection{Subsection Heading Here}
-Subsection text here.
+\section{Background}
+
+In engineering, the Fourier Transform is applicable to many topics such as 
+differential equations, spectroscopy, and quantum mechanics. In electrical
+engineering and signal processing, the Fourier transform can be used to
+switch between the time and frequency domains. Information in the time
+domain by itself it of little use when trying to infer information about
+a signal, as it is a representation of many different bands of frequencies
+superimposed on top of each other. If we perform a Fourier Transform on 
+a signal represented in the time domain, the result is a frequency spectrum
+that provides the resulting values in the complex plane. The frequency
+spectrum can be used to see which frequencies have the greatest power
+in a particular signal. If the signal we are analyzing is a radio wave
+generated by an antenna, we can determine which frequencies are being
+transmitted on, and quite possibly intercept the transmission as well.
+
+There are several implementations of the Fourier Transform. The one most
+commonly used by engineers in real applications is the FFT, or Fast
+Fourier Transform. As one may suspect, the FFT gets its name from the
+efficiency in which it computes the transform compared to other methods,
+however despite its speed, it does not compromise accuracy. There are a 
+few implementations of the FFT, the most common of which being the Cooley-
+Turkey algorithm, and another being the Bluestein's algorithm, which is
+used in some cases when the FFT size is near a prime number (where Cooley-
+Turkey performs poorly). 
+
+The FFTW library is one of the most popular FFT libraries in use in
+open-source software. It is also unsurprisingly by far and away the fastest open-source
+FFT library. Its only competition is Intel Math Kernel Library (MKL),
+a proprietary software developed by Intel for the Intel Compiler. These
+two FFT libraries are comparable in performance, with MKL usually outperforming
+FFTW for larger FFT's. In this project, we will be using FFTW as our 
+FFT library, due to its popularity, openness, and speed.
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{fftwmkl.png}
+\caption{Benchmarks comparing the performance of FFTW, MKL and other FFT libraries. FFTW and MKL are the fastest, shown in blue and black respectively. \cite{fftw:benchmarks}}
+\label{fig:fftwmkl}
+\end{figure}
 
 
-\subsubsection{Subsubsection Heading Here}
-Subsubsection text here.
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{signalgraph.png}
+\caption{Following the FFT calculation and signal analysis, a transmission is clearly visible in the frequency domain}
+\label{fig:pipeline}
+\end{figure}
+
+With the introduction of CUDA in 2008, NVIDIA has stepped into the
+high-performance computing arena. Due to their inherently parallel
+nature and fast floating point operations, GPU's handily lend themselves 
+to many engineering problems. NVIDIA has created their own implementation
+of the FFT, called cuFFT (CUDA FFT) for the convenience of programmers
+writing engineering software. cuFFT is modeled after its CPU-based counterpart
+FFTW, and implements its algorithms in a similar fashion. To speed up
+the transition for programmers used to FFTW, NVIDIA made the API for
+cuFFT almost identical to that of FFTW, making it easy to port existing
+code to the GPU for a significant speedup. For the parallel implementation
+of this project, cuFFT was used due to its similarity to FFTW for comparison
+purposes, and more importantly,  to avoid implementing an FFT manually
+on a GPU. 
+
+\section{Sequential Implementation}
+
+The sequential version of the program is relatively straightforward. Initially,
+the input to the program is a binary flat file consisting of 8-bit integers 
+representing the signal received by an antenna in the time domain. Each 8-bit
+integer is converted to a single-precision floating point number, and added
+to a vector for later processing. After the data is read from the file, arrays
+are allocated for the FFT computation and the main algorithm begins. An FFT of size
+4096 ($2^{12}$) was chosen as it exhibits the best performance when using FFTW and cuFFT.
+A real-to-complex FFT is performed incrementally on the input signal information
+and is stored in a result vector that contains both the real and complex portions
+of the transform as a complex conjugate. After the FFT is calculated, the modulus 
+of the complex result are calculated for each frequency bin to give us the
+magnitude of the frequency, as seen in Equation \ref{eq:modulus}.
+
+\begin{equation}
+|z|=\sqrt{ x^2 + yi^2 } \label{eq:modulus}
+\end{equation}
+
+Once we have the magnitude of each of the frequency bins calculated by the FFT,
+we can put them into the logarithmic decibel (dB) scale by using the formula 
+described by equation \ref{eq:dB}.
+
+\begin{equation}
+Z=20 \times \log_{10}(|z|) \label{eq:dB}
+\end{equation}
+
+After this calculation there are two different approaches we can take. The first,
+which is much simpler, compares the computed signal strength to a constant value
+set before runtime. If the signal strength for a particular frequency bin exceeds
+this value, we assume that a transmission has begun on that particular frequency.
+We can filter out some noise by applying another constant value that is the 
+amount of time that the signal strength for a particular bin must exceed the 
+signal strength constant in order to classify it as a transmission instead of 
+random noise.
+Given the unsophisticated nature of this method, it is unsurprising that it is not
+the most most reliable method to determine a legitimate transmission.
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{sequentialgraphic.png}
+\caption{A graphic showing the how the sequential program runs.}
+\label{fig:pipeline}
+\end{figure}
+
+A second approach is to dynamically modify these values as the signal strengths
+are computed during runtime. This allows for the level of noise to change during
+the transmission, and can be used as a more reliable method to distinguish between
+noise and actual transmissions. This increased accuracy comes at the cost of
+additional computational overhead during the execution of the algorithm.
+
+Once a transmission is detected, a new entry for it is created in a transmission log vector
+containing its frequency, maximum strength, and start time. Also during each iteration,
+the algorithm will then check to see if a current transmission's strength level
+has fallen below the threshold value. If this is the case, its end time will
+be added to the transmission log. Any subsequent rise of that frequency over the
+threshold value will trigger the creation of a new transmission log.
+
+Once the algorithm has been completed, the transmission log is written to a file
+of the users choosing for further analysis.
+
+\section{Parallel Implementation}
+
+With the parallel implementation, we use an algorithmically-similar approach 
+to our sequential implementation. Like the sequential version, we will be calculating
+the FFT of our input signal information to transform it to the frequency domain
+and calculating the complex modulus of the result. Unlike the CPU implementation,
+however, the signal information is not directly available to the card, and must
+be copied across the PCI Express (PCIE) bus. The PCIE bus is orders of magnitude
+slower than any kind of operation performed on a GPU or CPU, including memory
+accesses. As such, the PCIE bus often becomes a performance bottleneck for
+GPU programs, especially when the amount of data to be transferred is quite large.
+
+To solve this, we can use a technique called pipelining, which allows us to
+minimize this bottleneck. Pipelining, which is similar to the instruction
+pipeline used in the CPU, breaks memory transfer and computation of data into different
+parts that can be performed independently of each other. Blocks of data are transferred
+one at a time across the PCIE bus and are computed on once they arrive on the GPU.
+This way, we can start computing the FFTs and signal analysis right away without
+having to wait for the entire chunk of data to be transferred across the PCIE
+bus. For this paper, a non-pipelined approach will be implemented first for
+comparison purposes, and a pipelined version will follow.
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{cufftperformance.jpg}
+\caption{A single-precision performance comparison between cuFFT and the Intel MKL Library \cite{nvidia:cufft}}
+\label{fig:cufftmklperformance}
+\end{figure}
+
+\subsection{Non-Pipelined Approach}
+
+\subsection{Pipelined Approach}
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{parallelgraphic.png}
+\caption{A graphic illustrating a basic idea of a pipelined approach to the problem.}
+\label{fig:pipeline}
+\end{figure}
+
+
+
+\section{Results}
+
+
+
+\section{Conclusion}
+
 
 
 % An example of a floating figure using the graphicx package.
@@ -541,14 +711,6 @@ Subsubsection text here.
 % footnotes above bottom floats. This can be corrected via the \fnbelowfloat
 % command of the stfloats package.
 
-
-
-\section{Conclusion}
-The conclusion goes here.
-
-
-
-
 % conference papers do not normally have an appendix
 
 
@@ -558,7 +720,7 @@ The conclusion goes here.
 
 The authors would like to thank...
 
-
+\cite{IEEEhowto:IEEEtranpage}
 
 
 
@@ -584,14 +746,16 @@ The authors would like to thank...
 % <OR> manually copy in the resultant .bbl file
 % set second argument of \begin to the number of references
 % (used to reserve space for the reference number labels box)
-\begin{thebibliography}{1}
+%\begin{thebibliography}{1}
+%
+%\bibitem{IEEEhowto:kopka}
+%H.~Kopka and P.~W. Daly, \emph{A Guide to \LaTeX}, 3rd~ed.\hskip 1em plus
+%  0.5em minus 0.4em\relax Harlow, England: Addison-Wesley, 1999.
+%
+%\end{thebibliography}
 
-\bibitem{IEEEhowto:kopka}
-H.~Kopka and P.~W. Daly, \emph{A Guide to \LaTeX}, 3rd~ed.\hskip 1em plus
-  0.5em minus 0.4em\relax Harlow, England: Addison-Wesley, 1999.
-
-\end{thebibliography}
-
+\bibliographystyle{IEEEtran}	% (uses file "plain.bst")
+\bibliography{refs}		% expects file "myrefs.bib"
 
 
 
