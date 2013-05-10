@@ -446,12 +446,32 @@ to write C/C++ code that takes advantage of the hundreds or thousands of
 cores present on modern NVIDIA GPU's, without having to learn a new language,
 or have intimate knowledge of the hardware. 
 
-...
+Consequently, many applications that were formerly bound by the lack of floating
+point throughput of most CPU's can take advantage of the massive parallelism
+that a GPU can provide. Applications ranging from scientific and engineering 
+number crunching to sorting algorithms (which run many times faster than their
+CPU counterparts \cite{x}). Even though the performance of everyday algorithms
+can be improved by the GPU, the place where they most outperform the CPU is 
+in applications which require large amounts of floating point arithmetic. 
+Most scientific and engineering-related fields have large and computationally
+difficult problems that need to be solved as fast as possible. In this paper,
+we will look at a potential application of the GPU to solve problems in the
+field of Electrical Engineering; more spefically signal analysis and processing.
 
-...
+If we are working with a radio signal, we can take the digitized signal and
+use the GPU to detect anomalies in a particular frequency range. If we can
+detect that a transmission has occurred on a known frequency, then we can
+intercept that transmission (provided it is not encrpyted), or attempt
+to triangulate the position of the signal using multiple antennas that
+are synchronized to a certain degree. This paper presents a GPU algorithm
+to perform this task significantly faster than a CPU using well-optimized
+libraries.
 
-...
-
+The rest of this paper is organized as follows: first some of the background
+information surrounding the topic will be covered; second, the sequential implementation
+will be discussed; third, the parallel implementation, including pipelined and
+non-pipelined versions, will be explained; finally, we will end the paper
+with some concludatory remarks and the future direction of the project.
  
 \hfill May 9th, 2013
 
@@ -610,24 +630,116 @@ comparison purposes, and a pipelined version will follow.
 
 \subsection{Non-Pipelined Approach}
 
+To demonstrate the simplicity of achieving a speedup over a sequential implementation,
+a somewhat trivial approach was implemented first. In this implementation, the algorithm
+resembles the CPU version more closely than its pipelined counterpart. The signal data
+is transferred in one large chunk from the host to the GPU, after which the FFT
+is performed using the cuFFT API and the transmissions are detected using custom
+CUDA kernels run in parallel. Considering this methods simplicity, it has a few notable
+limitations. Firstly, we are limited to only computing on as much data that can be
+held in GPU memory. Secondly, and perhaps more importantly, this method cannot be used
+in realtime applications, as we are limited to performing the operations required
+on a finite set of data. Dispite these limitations, this method is still able to 
+achieve significant speedup over the sequential implementation.
+
 \subsection{Pipelined Approach}
+
+To hide the latency created by memory transfers across the PCIE bus, we can implement
+a pipelining scheme. In this implementation, smaller pieces of data are transferred
+incrementally to the device. This allows the GPU to begin work on some parts of 
+the data as others are still being transferred over. If each of $N$ pipeline stages are
+near equal in terms of time required to complete them, we can achieve a theoretical
+speedup of $N$ over a non-pipelined solution. 
+
+To do this, we split our algorithm up into four parts, or stages, to be pipelined.
+The first stage transfers signal data from the host memory to the GPU. The second 
+stage uses cuFFT to perform an FFT of size 4096 on the input data. The third stage performs
+signal processing. More specifically, it calculates the complex modulus across
+multiple FFT results to maximize GPU efficiency, as performing an operation on only
+4096 elements will result in GPU memory latency, as many cores will be waiting for
+memory access. The fourth and final stage detects transmissions by finding frequency
+bins that exceed the signal threshold. If a frequency has exceeded the threshold it
+will be noted in a bit array of size 4096. If the signal strength of a frequency that 
+is active in the bit array has fallen below the threshold, the information about that
+transmission will be noted in several device buffers for later transfer to the host.
+In the current implementation, it was decided that due to the relatively small amount
+of transmission data (in the range of 1KB) to be transfered back to the host, that
+this action should not be pipelined. If re-implemented for realtime analysis of radio
+signals, this process would have to be pipelined to allow transmissions to be
+discovered while the program is running and processing signal data. The pipelined
+process is illustrated in figure \ref{fig:pipeline}. 
 
 \begin{figure}[ht!]
 \centering
-\includegraphics[width=3.5in]{parallelgraphic.png}
+\includegraphics[width=3.5in]{pipeline.png}
 \caption{A graphic illustrating a basic idea of a pipelined approach to the problem.}
 \label{fig:pipeline}
 \end{figure}
 
-
-
 \section{Results}
 
+The unpipelined implementation of the GPU program achieved a significant speedup
+over its CPU counterpart, which peaked at around 53. As the number of elements
+increased however, its speedup began to fall and stabilize at around 13 or 14. This
+is due to two reasons. The first of which is a sub-optimized transmission recording
+kernel. The kernel requires atomics to increment the number of transmissions detected,
+as well as adding a new transmission to the transmission information buffers, which 
+requires atomics to ensure that other threads do not overwrite eachothers 
+transmissions. This kernel operation could be much further optimized to reduce this
+performance bottleneck. Secondly, the lack of a dynamic signal threshold creates
+many more transmissions in a high-noise section of the signal than a low-noise
+section. Consequently, in these high noise sections that were encountered later
+in the input file, many more transmissions were created and made the problem even
+more pronounced. Implementing a dynamic signal threshold would likely solve this
+issue. The speedup over the CPU version are illustrated in Figures \ref{fig:speedup}
+and \ref{fig:speedupgraph}.
 
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{speedup.png}
+\caption{Table of GPU speedup over CPU implementation with and without I/O.}
+\label{fig:speedup}
+\end{figure}
+
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{speedupgraph.png}
+\caption{Graph of GPU speedup over CPU implementation with and without I/O.}
+\label{fig:speedupgraph}
+\end{figure}
+
+Unfortunately, the pipelined implementation was unable to be finished. There 
+were a few different problems that were encountered that presented a significant
+challenge for this implementation. First and foremost was a problem surrounding
+the implementation of cuFFT. In the Cuda API, kernel calls are asynchronous
+as well as asynchronous memory copies. Adding an asynchronous memory copy 
+and a kernel call to a Cuda stream is an effective and relatively straightforward
+way of implementing a GPU pipeline. For this to work, each of the calls in the
+stream must be asynchronous, as the program running on the CPU must continue
+to make calls to the Cuda API to manage the other streams. If a blocking call
+is placed in the pipeline, the other streams will need to wait for that
+particular operation to finish, which defeats the purpose of creating a 
+pipeline in the first place since different steps cannot be executed at the 
+same time. The cuFFT API call to execute a FFT is blocking for reasons
+unbenounced to me. With the FFT being critical to the following steps
+of the algorithm, we cannot avoid this outright. A possible solution would be to
+execute the streams each in their separate thread, which would allow the
+blocking calls to occur without disrupting the other streams. However when
+calling the FFTs in separate threads, the result was runtime errors. The 
+pipelined version also needs a more complicated transmission detection kernel.
+Since there are several FFT's and processing being performed at different
+times, we must traverse all of these to determine when and how long a
+transmission has taken place.
 
 \section{Conclusion}
 
-
+In this paper, a method for performing signal processing and transmission
+detection on a GPU was presented. Even with algorithmic deficiencies and
+less-than-optimized kernels the program was able to achieve a 53 times
+speedup. Used in a relatively low-noise environment, the method should
+perform similar to test results. With additional work and testing, a
+pipelined version could also be implemented. 
 
 % An example of a floating figure using the graphicx package.
 % Note that \label must occur AFTER (or within) \caption.
