@@ -426,7 +426,7 @@ As the extensibility of GPU computing rapidly increases, we often find them usef
  use the GPU to perform discrete Fourier transforms on time-domain signal strength
  to represent the data in the frequency domain. With the data in this format, we can 
  calculate signal strength of various frequencies very efficiently, and further determine
- if a transmission on a particular frequency has taken place. Speedups in excess of X\%
+ if a transmission on a particular frequency has taken place. Speedups in excess of 70
  were achievable using a GPU-based implementation utilizing the cuFFT library over a CPU
  implementation utilizing the most performance optimized CPU-based FFT library, FFTW.
 
@@ -450,28 +450,35 @@ Consequently, many applications that were formerly bound by the lack of floating
 point throughput of most CPU's can take advantage of the massive parallelism
 that a GPU can provide. Applications ranging from scientific and engineering 
 number crunching to sorting algorithms (which run many times faster than their
-CPU counterparts \cite{x}). Even though the performance of everyday algorithms
+CPU counterparts \cite{sorting}). Even though the performance of everyday algorithms
 can be improved by the GPU, the place where they most outperform the CPU is 
 in applications which require large amounts of floating point arithmetic. 
 Most scientific and engineering-related fields have large and computationally
 difficult problems that need to be solved as fast as possible. In this paper,
 we will look at a potential application of the GPU to solve problems in the
-field of Electrical Engineering; more spefically signal analysis and processing.
+field of Electrical Engineering; more specifically signal analysis and processing.
 
 If we are working with a radio signal, we can take the digitized signal and
 use the GPU to detect anomalies in a particular frequency range. If we can
 detect that a transmission has occurred on a known frequency, then we can
-intercept that transmission (provided it is not encrpyted), or attempt
+intercept that transmission (provided it is not encrypted), or attempt
 to triangulate the position of the signal using multiple antennas that
 are synchronized to a certain degree. This paper presents a GPU algorithm
 to perform this task significantly faster than a CPU using well-optimized
 libraries.
 
+Many implementations for signal detection already exist. Wireless 
+communication such as the varying cell network technologies rely on signal
+detection and correction to function. Popular methods include the QRM-MLD 
+allow for efficient frequency domain signal detection as proposed by 
+T Yamamoto\cite{yamamoto}, and frequency domain signal processing methods
+by Howard et. all \cite{howard}.
+
 The rest of this paper is organized as follows: first some of the background
 information surrounding the topic will be covered; second, the sequential implementation
 will be discussed; third, the parallel implementation, including pipelined and
 non-pipelined versions, will be explained; finally, we will end the paper
-with some concludatory remarks and the future direction of the project.
+with some concluding remarks and the future direction of the project.
  
 \hfill May 9th, 2013
 
@@ -579,7 +586,7 @@ the most most reliable method to determine a legitimate transmission.
 \begin{figure}[ht!]
 \centering
 \includegraphics[width=3.5in]{sequentialgraphic.png}
-\caption{A graphic showing the how the sequential program runs.}
+\caption{A graphic showing the operation of the sequential algorithm.}
 \label{fig:pipeline}
 \end{figure}
 
@@ -639,7 +646,7 @@ CUDA kernels run in parallel. Considering this methods simplicity, it has a few 
 limitations. Firstly, we are limited to only computing on as much data that can be
 held in GPU memory. Secondly, and perhaps more importantly, this method cannot be used
 in realtime applications, as we are limited to performing the operations required
-on a finite set of data. Dispite these limitations, this method is still able to 
+on a finite set of data. Despite these limitations, this method is still able to 
 achieve significant speedup over the sequential implementation.
 
 \subsection{Pipelined Approach}
@@ -672,7 +679,7 @@ process is illustrated in figure \ref{fig:pipeline}.
 \begin{figure}[ht!]
 \centering
 \includegraphics[width=3.5in]{pipeline.png}
-\caption{A graphic illustrating a basic idea of a pipelined approach to the problem.}
+\caption{A graphic briefly showing the pipelined approach to the problem. Each stage is shown in a different color and can be performed independently of one another.}
 \label{fig:pipeline}
 \end{figure}
 
@@ -684,7 +691,7 @@ increased however, its speedup began to fall and stabilize at around 13 or 14. T
 is due to two reasons. The first of which is a sub-optimized transmission recording
 kernel. The kernel requires atomics to increment the number of transmissions detected,
 as well as adding a new transmission to the transmission information buffers, which 
-requires atomics to ensure that other threads do not overwrite eachothers 
+requires atomics to ensure that other threads do not overwrite each others 
 transmissions. This kernel operation could be much further optimized to reduce this
 performance bottleneck. Secondly, the lack of a dynamic signal threshold creates
 many more transmissions in a high-noise section of the signal than a low-noise
@@ -694,19 +701,53 @@ more pronounced. Implementing a dynamic signal threshold would likely solve this
 issue. The speedup over the CPU version are illustrated in Figures \ref{fig:speedup}
 and \ref{fig:speedupgraph}.
 
+The efficiency of the algorithm is quite low. This is largely due to the memory
+copy to the device from the host, during which time the device is idle. The pipelined
+approach should solve that problem, and increase efficiency to a more acceptable
+range. Throughput was significantly higher for the GPU version, both with and
+without I/O included. Again, pipelining the solution would likely increase the
+throughput of the GPU version significantly.
+
 \begin{figure}[ht!]
 \centering
-\includegraphics[width=3.5in]{speedup.png}
-\caption{Table of GPU speedup over CPU implementation with and without I/O.}
+\includegraphics[width=3in]{speedup.png}
+\caption{Table displaying GPU speedup over CPU implementation with and without I/O.}
 \label{fig:speedup}
 \end{figure}
-
 
 \begin{figure}[ht!]
 \centering
 \includegraphics[width=3.5in]{speedupgraph.png}
-\caption{Graph of GPU speedup over CPU implementation with and without I/O.}
+\caption{Graph displaying GPU speedup over CPU implementation with and without I/O.}
 \label{fig:speedupgraph}
+\end{figure}
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3in]{efficiency.png}
+\caption{Table with GPU efficiency with and without I/O. (Based on 336 Cuda cores in the Nvidia GTX460)}
+\label{fig:efficiency}
+\end{figure}
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{efficiencygraph.png}
+\caption{Graph showing GPU efficiency with and without I/O. (Based on 336 Cuda cores in the Nvidia GTX460)}
+\label{fig:efficiencygraph}
+\end{figure}
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3in]{throughput.png}
+\caption{Table of throughput (in samples/second) of sequential and parallel versions of the program. }
+\label{fig:throughput}
+\end{figure}
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=3.5in]{throughputgraph.png}
+\caption{Table of throughput (in samples/second) of sequential and parallel versions of the program.  }
+\label{fig:throughputgraph}
 \end{figure}
 
 Unfortunately, the pipelined implementation was unable to be finished. There 
@@ -721,8 +762,8 @@ to make calls to the Cuda API to manage the other streams. If a blocking call
 is placed in the pipeline, the other streams will need to wait for that
 particular operation to finish, which defeats the purpose of creating a 
 pipeline in the first place since different steps cannot be executed at the 
-same time. The cuFFT API call to execute a FFT is blocking for reasons
-unbenounced to me. With the FFT being critical to the following steps
+same time. The cuFFT API call to execute a FFT is blocking for an unknown
+reason. With the FFT being critical to the following steps
 of the algorithm, we cannot avoid this outright. A possible solution would be to
 execute the streams each in their separate thread, which would allow the
 blocking calls to occur without disrupting the other streams. However when
@@ -737,9 +778,15 @@ transmission has taken place.
 In this paper, a method for performing signal processing and transmission
 detection on a GPU was presented. Even with algorithmic deficiencies and
 less-than-optimized kernels the program was able to achieve a 53 times
-speedup. Used in a relatively low-noise environment, the method should
-perform similar to test results. With additional work and testing, a
-pipelined version could also be implemented. 
+speedup. Used in a relatively low-noise environment with sparse
+communication, the method should
+perform similar to the maximum speedup. With additional work and testing, a
+pipelined version could also be implemented. This version should improve 
+performance when processing very large sets of signal data by about
+a factor of four. If implemented efficiently, this approach could be used
+to monitor radio traffic across a number of frequencies in realtime,
+or perhaps be used to triangulate the position of multiple radio
+transmissions simultaneously.
 
 % An example of a floating figure using the graphicx package.
 % Note that \label must occur AFTER (or within) \caption.
@@ -827,12 +874,12 @@ pipelined version could also be implemented.
 
 
 % use section* for acknowledgement
-\section*{Acknowledgment}
+%\section*{Acknowledgment}
 
 
-The authors would like to thank...
+%The authors would like to thank...
 
-\cite{IEEEhowto:IEEEtranpage}
+%\cite{IEEEhowto:IEEEtranpage}
 
 
 
